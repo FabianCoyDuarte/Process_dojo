@@ -1,2 +1,4 @@
-streamlit
-watchdog
+streamlit==1.49.1
+watchdog==6.0.0
+openpyxl
+xlsxwriter

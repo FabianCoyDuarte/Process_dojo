@@ -1,5 +1,7 @@
 import streamlit as st
 import os
+import pandas as pd
+from io import BytesIO
 
 st.title("File Renamer App")
 
@@ -20,23 +22,39 @@ if uploaded_file is not None:
         st.error("Please upload an Excel file (.xls or .xlsx).")
     else:
         if st.button("Process File"):
-            file_bytes = uploaded_file.read()
+            # Read all sheets into a dictionary of DataFrames
+            try:
+                excel_data = pd.read_excel(uploaded_file, sheet_name=None)
+            except Exception as e:
+                st.error(f"Error reading Excel file: {e}")
+                st.stop()
+
+            # Show sheet names and preview
+            st.write("Sheets found:", list(excel_data.keys()))
+            for sheet_name, df in excel_data.items():
+                st.write(f"Preview of '{sheet_name}':")
+                st.dataframe(df.head())
+
+            # Prepare file renaming
             name, ext = os.path.splitext(original_name)
-
-            # Apply filter
-            if filter_option == "Uppercase Filename":
-                name = name.upper()
-            elif filter_option == "Lowercase Filename":
-                name = name.lower()
-            elif filter_option == "Add Suffix":
-                name = f"{name}_suffix"
-
+            if filter_option == "Colombia":
+                name = f"{name}_colombia"
+            elif filter_option == "Peru":
+                name = f"{name}_peru"
             new_name = f"{name}_renamed{ext}"
 
             st.success(f"File processed: {original_name} → {new_name}")
+
+            # To allow download, re-save the Excel with all sheets
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                for sheet, df in excel_data.items():
+                    df.to_excel(writer, sheet_name=sheet, index=False)
+                output.seek(0)
+
             st.download_button(
-                label=f"Download as {new_name}",
-                data=file_bytes,
-                file_name=new_name,
-                mime=uploaded_file.type
+            label=f"Download as {new_name}",
+            data=output,
+            file_name=new_name,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
