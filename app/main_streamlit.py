@@ -2,8 +2,9 @@ import streamlit as st
 import os
 import pandas as pd
 from io import BytesIO
+from processing import DojoAttendanceProcessor
 
-st.title("File Renamer App")
+st.title("Dojo Attendance Processor")
 
 # Filter selection
 filter_option = st.selectbox(
@@ -14,47 +15,29 @@ filter_option = st.selectbox(
 # File uploader
 uploaded_file = st.file_uploader("Choose a file to upload", type=["xls", "xlsx"])
 
-# Button to trigger renaming
 if uploaded_file is not None:
     original_name = uploaded_file.name
     _, ext = os.path.splitext(original_name)
     if ext.lower() not in [".xls", ".xlsx"]:
-        st.error("Please upload an Excel file (.xls or .xlsx).")
+        st.error("Please upload an Excel file (.xls or .xlsx)")
     else:
         if st.button("Process File"):
-            # Read all sheets into a dictionary of DataFrames
+            if not filter_option:
+                st.error("Please select a country filter.")
+                st.stop()
             try:
-                excel_data = pd.read_excel(uploaded_file, sheet_name=None)
+                # Save uploaded file to a temporary location if needed
+                # Or pass the file-like object directly if your processor supports it
+                processor = DojoAttendanceProcessor()
+                country = filter_option
+                df_looker_tcbp, report_cleaned = processor.process(country, uploaded_file)
             except Exception as e:
-                st.error(f"Error reading Excel file: {e}")
+                st.error(f"Error processing file: {e}")
                 st.stop()
 
-            # Show sheet names and preview
-            st.write("Sheets found:", list(excel_data.keys()))
-            for sheet_name, df in excel_data.items():
-                st.write(f"Preview of '{sheet_name}':")
-                st.dataframe(df.head())
+            st.success("File processed successfully!")
+            st.write("Report Cleaned:")
+            st.dataframe(report_cleaned)
 
-            # Prepare file renaming
-            name, ext = os.path.splitext(original_name)
-            if filter_option == "Colombia":
-                name = f"{name}_colombia"
-            elif filter_option == "Peru":
-                name = f"{name}_peru"
-            new_name = f"{name}_renamed{ext}"
-
-            st.success(f"File processed: {original_name} → {new_name}")
-
-            # To allow download, re-save the Excel with all sheets
-            output = BytesIO()
-            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                for sheet, df in excel_data.items():
-                    df.to_excel(writer, sheet_name=sheet, index=False)
-                output.seek(0)
-
-            st.download_button(
-            label=f"Download as {new_name}",
-            data=output,
-            file_name=new_name,
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+            st.write("Total_Values:")
+            st.dataframe(df_looker_tcbp.tail(1))
